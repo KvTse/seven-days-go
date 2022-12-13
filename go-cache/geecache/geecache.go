@@ -1,6 +1,7 @@
 package geecache
 
 import (
+	"geecache/singleflight"
 	"log"
 	"sync"
 )
@@ -22,7 +23,8 @@ type Group struct {
 	name      string
 	getter    Getter
 	mainCache cache
-	picker    PeerPicker // 分布式缓存节点选择器
+	picker    PeerPicker          // 分布式缓存节点选择器
+	loader    *singleflight.Group // using this to make sure each key is only fetch once at the same time
 }
 
 var (
@@ -47,18 +49,24 @@ func (g *Group) Get(key string) (ByteView, error) {
 }
 
 func (g *Group) load(key string) (ByteView, error) {
-	if g.picker != nil {
-		if peer, ok := g.picker.pickPeer(key); ok {
-			v, err := g.getFromPeer(peer, key)
-			if err == nil {
-				log.Println("get data form {}", peer)
-				return v, nil
+	view, err := g.loader.Do(key, func() (interface{}, error) {
+		if g.picker != nil {
+			if peer, ok := g.picker.pickPeer(key); ok {
+				v, err := g.getFromPeer(peer, key)
+				if err == nil {
+					log.Println("get data form {}", peer)
+					return v, nil
+				}
+				log.Println("fail to get from peer", err)
 			}
-			log.Println("fail to get from peer", err)
 		}
+		// 从本地加载
+		return g.getLocally(key)
+	})
+	if err == nil {
+		return view.(ByteView), nil
 	}
-	// 从本地加载
-	return g.getLocally(key)
+	return ByteView{}, nil
 }
 
 func (g *Group) getLocally(key string) (ByteView, error) {
@@ -94,6 +102,7 @@ func NewGroup(name string, cacheBytes int64, getter Getter) *Group {
 		name:      name,
 		getter:    getter,
 		mainCache: cache{cacheBytes: cacheBytes},
+		loader:    &singleflight.Group{},
 	}
 	groups[name] = g
 	return g
