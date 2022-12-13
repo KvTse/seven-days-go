@@ -22,6 +22,7 @@ type Group struct {
 	name      string
 	getter    Getter
 	mainCache cache
+	picker    PeerPicker // 分布式缓存节点选择器
 }
 
 var (
@@ -29,6 +30,12 @@ var (
 	groups = make(map[string]*Group)
 )
 
+func (g *Group) RegisterPeerPicker(picker PeerPicker) {
+	if g.picker != nil {
+		panic("already register peers picker")
+	}
+	g.picker = picker
+}
 func (g *Group) Get(key string) (ByteView, error) {
 	if v, ok := g.mainCache.get(key); ok {
 		log.Printf("[GeeCache] hit key -> %s\n", key)
@@ -40,6 +47,17 @@ func (g *Group) Get(key string) (ByteView, error) {
 }
 
 func (g *Group) load(key string) (ByteView, error) {
+	if g.picker != nil {
+		if peer, ok := g.picker.pickPeer(key); ok {
+			v, err := g.getFromPeer(peer, key)
+			if err == nil {
+				log.Println("get data form {}", peer)
+				return v, nil
+			}
+			log.Println("fail to get from peer", err)
+		}
+	}
+	// 从本地加载
 	return g.getLocally(key)
 }
 
@@ -57,6 +75,14 @@ func (g *Group) getLocally(key string) (ByteView, error) {
 
 func (g *Group) populateCache(key string, value ByteView) {
 	g.mainCache.add(key, value)
+}
+
+func (g *Group) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
+	bytes, err := peer.Get(g.name, key)
+	if err != nil {
+		return ByteView{}, err
+	}
+	return ByteView{b: bytes}, nil
 }
 func NewGroup(name string, cacheBytes int64, getter Getter) *Group {
 	if getter == nil {

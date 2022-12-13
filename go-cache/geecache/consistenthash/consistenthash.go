@@ -44,7 +44,7 @@ func (m *Map) Add(keys ...string) {
 	sort.Ints(m.keys)
 }
 
-// Get choose the node
+// Get choose the node return the true node
 func (m *Map) Get(key string) string {
 	if len(m.keys) == 0 {
 		return ""
