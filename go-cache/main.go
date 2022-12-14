@@ -55,11 +55,15 @@ func startApiServer(apiAddr string, group *geecache.Group) {
 func main() {
 	var port int
 	var api bool
+	// 如果外部没有穿参的话,给参数赋默认值.
 	flag.IntVar(&port, "port", 8001, "Geecache server port")
-	flag.BoolVar(&api, "api", true, "Start a api server?")
+	flag.BoolVar(&api, "api", false, "Start a api server?")
 	flag.Parse()
 
 	apiAddr := "http://localhost:8099"
+	// 构建map并给指定数量的参数
+	// 也可以是m:=make(map[int]string)
+	// m[8001]="http://localhost:8001" 的形式
 	addrMap := map[int]string{
 		8001: "http://localhost:8001",
 		8002: "http://localhost:8002",
