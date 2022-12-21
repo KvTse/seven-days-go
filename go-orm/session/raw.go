@@ -8,7 +8,7 @@ import (
 
 type Session struct {
 	db      *sql.DB
-	sql     strings.Builder
+	sql     strings.Builder // 用于高效拼接SQL
 	sqlVars []interface{}
 }
 
