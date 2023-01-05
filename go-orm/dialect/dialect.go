@@ -16,8 +16,8 @@ func RegisterDialect(name string, dialect Dialect) {
 	dialectsMap[name] = dialect
 }
 
-// 获取方言
-func getDialect(name string) (dialect Dialect, ok bool) {
+// GetDialect 获取方言
+func GetDialect(name string) (dialect Dialect, ok bool) {
 	dialect, ok = dialectsMap[name]
 	return
 }
